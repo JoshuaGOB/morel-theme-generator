@@ -6,3 +6,4 @@ vendor
 Readme_draft.md
 dev
 assets/env
+.DS_Store
