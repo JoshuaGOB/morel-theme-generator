@@ -7,8 +7,14 @@ WORKDIR /srv/jekyll
 # Copy the current directory (your Jekyll project) into the container
 COPY . .
 
+# Adjust permissions to ensure the container user can write to the directory
+RUN chown -R jekyll:jekyll /srv/jekyll
+
+# Switch to the Jekyll user
+USER jekyll
+
 # Install the project dependencies
-RUN bundle install
+RUN bundle config set path 'vendor/bundle' && bundle install
 
 # Expose port 4000 for Jekyll
 EXPOSE 4000
