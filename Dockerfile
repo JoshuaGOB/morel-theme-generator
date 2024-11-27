@@ -1,59 +1,38 @@
-# Use an official Ubuntu base image as a starting point
-FROM ubuntu:22.04
+#!/bin/bash
 
-# Prevent interactive prompts during package installation
-ENV DEBIAN_FRONTEND=noninteractive
+# Check if repository is empty
+if [ -z "$(ls -A /app/repository)" ]; then
+    # If no files, clone the repository if URL is provided
+    if [ -n "$GITHUB_REPO_URL" ]; then
+        echo "Cloning repository from $GITHUB_REPO_URL"
+        git clone "$GITHUB_REPO_URL" /app/repository
+    else
+        echo "No repository URL provided and no existing files found."
+    fi
+else
+    echo "Repository directory is not empty. Using existing files."
+fi
 
-# Set the working directory in the container
-WORKDIR /app
+# Change to repository directory
+cd /app/repository
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    git \
-    autoconf \
-    bison \
-    libssl-dev \
-    libyaml-dev \
-    libreadline6-dev \
-    zlib1g-dev \
-    libncurses5-dev \
-    libffi-dev \
-    libgdbm6 \
-    libgdbm-dev \
-    libdb-dev \
-    python3 \
-    python3-pip \
-    python3-venv \
-    wget \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Run bundle as non-root user
+sudo -u bundler bash -c '
+    # Install Ruby dependencies
+    if [ -f "Gemfile" ]; then
+        echo "Installing Ruby dependencies..."
+        bundle config set --local path "vendor/bundle"
+        bundle install
+    else
+        echo "No Gemfile found. Installing Jekyll directly..."
+        gem install jekyll webrick
+    fi
+'
 
-# Install Ruby using rbenv
-RUN git clone https://github.com/rbenv/rbenv.git ~/.rbenv \
-    && git clone https://github.com/rbenv/ruby-build.git ~/.rbenv/plugins/ruby-build \
-    && export PATH="$HOME/.rbenv/bin:$PATH" \
-    && eval "$(~/.rbenv/bin/rbenv init -)" \
-    && rbenv install 3.3.5 \
-    && rbenv global 3.3.5
+# Install Python dependencies if requirements.txt exists
+if [ -f "requirements.txt" ]; then
+    pip install -r requirements.txt
+fi
 
-# Update PATH to include Ruby and rbenv
-ENV PATH="/root/.rbenv/shims:/root/.rbenv/bin:${PATH}"
-
-# Upgrade RubyGems and Bundler
-RUN gem update --system && \
-    gem install bundler
-
-# Create a Python virtual environment
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Create an entrypoint script to handle repository and dependencies
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Set the entrypoint
-ENTRYPOINT ["/entrypoint.sh"]
-
-# Default command
-CMD ["/bin/bash"]
+# Execute the command passed to the container
+exec "$@"
