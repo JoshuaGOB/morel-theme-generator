@@ -16,14 +16,18 @@ fi
 # Change to repository directory
 cd /app/repository
 
-# Install Ruby dependencies
-if [ -f "Gemfile" ]; then
-    echo "Installing Ruby dependencies..."
-    bundle install
-else
-    echo "No Gemfile found. Installing Jekyll directly..."
-    gem install jekyll webrick
-fi
+# Run bundle as non-root user
+sudo -u bundler bash -c '
+    # Install Ruby dependencies
+    if [ -f "Gemfile" ]; then
+        echo "Installing Ruby dependencies..."
+        bundle config set --local path "vendor/bundle"
+        bundle install
+    else
+        echo "No Gemfile found. Installing Jekyll directly..."
+        gem install jekyll webrick
+    fi
+'
 
 # Install Python dependencies if requirements.txt exists
 if [ -f "requirements.txt" ]; then
